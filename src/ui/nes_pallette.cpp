@@ -1,0 +1,33 @@
+#include "ui/nes_palette.hpp"
+
+namespace nes {
+
+namespace {
+// NES palette colors in ARGB format. The NES has a fixed palette of 64 colors, and this array maps each color index to its corresponding 
+// ARGB value.
+constexpr std::array<std::uint32_t, 64> kNesPaletteArgb = {
+    0xFF666666U, 0xFF002A88U, 0xFF1412A7U, 0xFF3B00A4U,
+    0xFF5C007EU, 0xFF6E0040U, 0xFF6C0600U, 0xFF561D00U,
+    0xFF333500U, 0xFF0B4800U, 0xFF005200U, 0xFF004F08U,
+    0xFF00404DU, 0xFF000000U, 0xFF000000U, 0xFF000000U,
+    0xFFADADADU, 0xFF155FD9U, 0xFF4240FFU, 0xFF7527FEU,
+    0xFFA01ACCU, 0xFFB71E7BU, 0xFFB53120U, 0xFF994E00U,
+    0xFF6B6D00U, 0xFF388700U, 0xFF0C9300U, 0xFF008F32U,
+    0xFF007C8DU, 0xFF000000U, 0xFF000000U, 0xFF000000U,
+    0xFFFFFEFFU, 0xFF64B0FFU, 0xFF9290FFU, 0xFFC676FFU,
+    0xFFF36AFFU, 0xFFFE6ECCU, 0xFFFE8170U, 0xFFEA9E22U,
+    0xFFBCBE00U, 0xFF88D800U, 0xFF5CE430U, 0xFF45E082U,
+    0xFF48CDDEU, 0xFF4F4F4FU, 0xFF000000U, 0xFF000000U,
+    0xFFFFFEFFU, 0xFFC0DFFFU, 0xFFD3D2FFU, 0xFFE8C8FFU,
+    0xFFFBC2FFU, 0xFFFEC4EAU, 0xFFFECCC5U, 0xFFF7D8A5U,
+    0xFFE4E594U, 0xFFCFEF96U, 0xFFBDF4ABU, 0xFFB3F3CCU,
+    0xFFB5EBF2U, 0xFFB8B8B8U, 0xFF000000U, 0xFF000000U
+};
+
+} // namespace
+
+std::uint32_t nes_color_to_argb(u8 color_index) noexcept {
+    return kNesPaletteArgb[color_index & 0x3FU];
+}
+
+} // namespace nes
