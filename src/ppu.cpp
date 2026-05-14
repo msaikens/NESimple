@@ -200,20 +200,36 @@ void Ppu::render_background() {
 void Ppu::render_background_scanline(usize y) {
     const u16 bg_pattern_base = (ctrl_ & 0x10U) != 0U ? 0x1000U : 0x0000U;
 
-    for (usize x = 0; x < 256U; ++x) {
-        const usize scrolled_x = (x + static_cast<usize>(scroll_x_)) % 512U;
-        const usize scrolled_y = (y + static_cast<usize>(scroll_y_)) % 480U;
+    // If background rendering is disabled, fill this scanline with backdrop.
+    // This keeps old games sane and prevents stale scanline garbage.
+    if ((mask_ & 0x08U) == 0U) {
+        for (usize x = 0; x < 256U; ++x) {
+            frame_buffer_[y * 256U + x] = palette_[0];
+        }
 
-        const usize tile_x = scrolled_x / 8U;
-        const usize tile_y = scrolled_y / 8U;
-        const usize col_in_tile = scrolled_x & 0x07U;
-        const usize row_in_tile = scrolled_y & 0x07U;
+        return;
+    }
+
+    const usize scrolled_y = (y + static_cast<usize>(scroll_y_)) % 480U;
+    const usize tile_y = scrolled_y / 8U;
+    const usize row_in_tile = scrolled_y & 0x07U;
+
+    const usize base_scrolled_x = static_cast<usize>(scroll_x_);
+    const usize start_tile_x = base_scrolled_x / 8U;
+    const usize fine_x = base_scrolled_x & 0x07U;
+
+    // 33 tiles are needed to cover the full 256-pixel scanline when fine_x != 0.
+    for (usize visible_tile_col = 0; visible_tile_col < 33U; ++visible_tile_col) {
+        const usize tile_x = start_tile_x + visible_tile_col;
 
         const u16 base_nametable = static_cast<u16>(ctrl_ & 0x03U);
         const u16 nametable_select = static_cast<u16>(
             (base_nametable + (tile_x / 32U) + ((tile_y / 30U) << 1U)) & 0x03U
         );
-        const u16 nametable_base = static_cast<u16>(0x2000U + nametable_select * 0x0400U);
+
+        const u16 nametable_base = static_cast<u16>(
+            0x2000U + nametable_select * 0x0400U
+        );
 
         const u16 local_tile_x = static_cast<u16>(tile_x % 32U);
         const u16 local_tile_y = static_cast<u16>(tile_y % 30U);
@@ -221,11 +237,13 @@ void Ppu::render_background_scanline(usize y) {
         const u16 nametable_addr = static_cast<u16>(
             nametable_base + local_tile_y * 32U + local_tile_x
         );
+
         const u8 tile_index = vram_[mirror_nametable_addr(nametable_addr)];
 
         const u16 attribute_addr = static_cast<u16>(
             nametable_base + 0x03C0U + (local_tile_y / 4U) * 8U + (local_tile_x / 4U)
         );
+
         const u8 attribute_byte = vram_[mirror_nametable_addr(attribute_addr)];
 
         const u8 quadrant_x = static_cast<u8>((local_tile_x % 4U) / 2U);
@@ -233,23 +251,45 @@ void Ppu::render_background_scanline(usize y) {
         const u8 shift = static_cast<u8>((quadrant_y * 2U + quadrant_x) * 2U);
         const u8 palette_select = static_cast<u8>((attribute_byte >> shift) & 0x03U);
 
-        const u16 pattern_addr =
-            static_cast<u16>(bg_pattern_base + tile_index * 16U + row_in_tile);
+        const u16 pattern_addr = static_cast<u16>(
+            bg_pattern_base + tile_index * 16U + row_in_tile
+        );
+
+        // Important for Mapper 9/MMC2:
+        // Read each pattern byte once per tile row, not once per pixel.
+        // Repeated reads can trigger MMC2 latches too often and hurt performance.
         const u8 low = read_ppu_data(pattern_addr);
         const u8 high = read_ppu_data(static_cast<u16>(pattern_addr + 8U));
 
-        const u8 bit = static_cast<u8>(7U - col_in_tile);
-        const u8 pixel_low = static_cast<u8>(
-            ((low >> bit) & 0x01U) | (((high >> bit) & 0x01U) << 1U)
-        );
+        const int screen_tile_x =
+            static_cast<int>(visible_tile_col * 8U) - static_cast<int>(fine_x);
 
-        u8 palette_value = palette_[0];
-        if (pixel_low != 0U) {
-            const u8 palette_entry = static_cast<u8>(palette_select * 4U + pixel_low);
-            palette_value = palette_[palette_entry];
+        for (usize col = 0; col < 8U; ++col) {
+            const int screen_x = screen_tile_x + static_cast<int>(col);
+
+            if (screen_x < 0 || screen_x >= 256) {
+                continue;
+            }
+
+            const u8 bit = static_cast<u8>(7U - col);
+            const u8 pixel_low = static_cast<u8>(
+                ((low >> bit) & 0x01U) | (((high >> bit) & 0x01U) << 1U)
+            );
+
+            u8 palette_value = palette_[0];
+
+            if (pixel_low != 0U) {
+                const u8 palette_entry = static_cast<u8>(
+                    palette_select * 4U + pixel_low
+                );
+
+                palette_value = palette_[palette_index(
+                    static_cast<u16>(0x3F00U + palette_entry)
+                )];
+            }
+
+            frame_buffer_[y * 256U + static_cast<usize>(screen_x)] = palette_value;
         }
-
-        frame_buffer_[y * 256U + x] = palette_value;
     }
 }
 

@@ -22,7 +22,7 @@
 #include "ui/app_window.hpp"
 
 namespace {
-constexpr bool kDebugTerminalOutput = true;
+constexpr bool kDebugTerminalOutput = false;
 
 constexpr std::uint32_t kDebugCategories =
     nes::debug_category_mask(nes::DebugCategory::Cpu) |
@@ -367,7 +367,19 @@ int main(int argc, char** argv) {
 
             const std::uint64_t current_frame =
                 emulator->cpu.bus().ppu().frame_counter();
-
+if ((current_frame % 60U) == 0U) {
+    nes::DebugLog::write_if(nes::DebugCategory::General, [&] {
+        std::ostringstream out;
+        out << "HEARTBEAT"
+            << " frame=" << current_frame
+            << " pc=$"
+            << std::hex << std::uppercase
+            << std::setw(4) << std::setfill('0')
+            << static_cast<int>(emulator->cpu.pc())
+            << " fps=" << std::dec << fps;
+        return out.str();
+    });
+}
             nes::OverlayState overlay {};
             overlay.paused = paused;
             overlay.gamepad_connected = window.has_gamepad();

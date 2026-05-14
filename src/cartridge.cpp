@@ -7,6 +7,7 @@
 #include "mappers/mapper.hpp"
 #include "mappers/mapper0.hpp"
 #include "mappers/mapper2.hpp"
+#include "mappers/mapper9.hpp"
 #include "mappers/mapper23.hpp"
 
 namespace nes {
@@ -21,7 +22,9 @@ Cartridge::Cartridge(Rom rom)
     case 2:
         mapper_ = std::make_unique<Mapper2>(std::move(rom));
         break;
-
+    case 9:
+        mapper_ = std::make_unique<Mapper9>(std::move(rom));
+        break;
     case 23:
         mapper_ = std::make_unique<Mapper23>(std::move(rom));
         break;
